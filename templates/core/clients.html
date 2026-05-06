@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion Clients{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h1>Liste des Clients</h1>
+    <button class="btn btn-primary" onclick="ouvrirModal()">+ Ajouter Client</button>
+</div>
+
+<table class="table table-striped" id="table-clients">
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Modal -->
+<div class="modal fade" id="modalClient" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="client-id">
+                <div class="mb-3">
+                    <label>Nom</label>
+                    <input type="text" class="form-control" id="client-nom">
+                </div>
+                <div class="mb-3">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="client-email">
+                </div>
+                <div class="mb-3">
+                    <label>Téléphone</label>
+                    <input type="text" class="form-control" id="client-telephone">
+                </div>
+                <div class="mb-3">
+                    <label>Adresse</label>
+                    <textarea class="form-control" id="client-adresse"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="sauvegarder()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let clients = [];
+
+function charger() {
+    $.getJSON('/api/clients/', function(data) {
+        clients = data;
+        let html = '';
+        data.forEach(c => {
+            html += `<tr>
+                <td>${c.nom}</td>
+                <td>${c.email}</td>
+                <td>${c.telephone}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="modifier(${c.id})">Modifier</button>
+                    <button class="btn btn-sm btn-danger" onclick="supprimer(${c.id})">Supprimer</button>
+                </td>
+            </tr>`;
+        });
+        $('#table-clients tbody').html(html);
+    });
+}
+
+function ouvrirModal() {
+    $('#client-id').val('');
+    $('#client-nom').val('');
+    $('#client-email').val('');
+    $('#client-telephone').val('');
+    $('#client-adresse').val('');
+    $('#modalClient').modal('show');
+}
+
+function modifier(id) {
+    let c = clients.find(x => x.id === id);
+    $('#client-id').val(c.id);
+    $('#client-nom').val(c.nom);
+    $('#client-email').val(c.email);
+    $('#client-telephone').val(c.telephone);
+    $('#client-adresse').val(c.adresse);
+    $('#modalClient').modal('show');
+}
+
+function sauvegarder() {
+    let id = $('#client-id').val();
+    let data = {
+        nom: $('#client-nom').val(),
+        email: $('#client-email').val(),
+        telephone: $('#client-telephone').val(),
+        adresse: $('#client-adresse').val()
+    };
+    if(id) data.id = parseInt(id);
+    
+    $.ajax({
+        url: '/api/clients/',
+        method: id ? 'PUT' : 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            $('#modalClient').modal('hide');
+            charger();
+        }
+    });
+}
+
+function supprimer(id) {
+    if(!confirm('Supprimer ?')) return;
+    $.ajax({
+        url: '/api/clients/',
+        method: 'DELETE',
+        contentType: 'application/json',
+        data: JSON.stringify({id: id}),
+        success: charger
+    });
+}
+
+$(document).ready(charger);
+</script>
+{% endblock %}

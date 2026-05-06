@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion des Meubles{% endblock %}
+{% block page_title %}Gestion du Catalogue{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Liste des Meubles</h3>
+        <div class="card-tools">
+            <button class="btn btn-primary btn-sm" onclick="ouvrirModal()">
+                <i class="fas fa-plus"></i> Ajouter
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered table-striped" id="table-meubles">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Catégorie</th>
+                    <th>Prix</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Ajout/Edit -->
+<div class="modal fade" id="modalMeuble">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="modal-title">Ajouter un Meuble</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="meuble-id">
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" class="form-control" id="meuble-nom" required>
+                </div>
+                <div class="form-group">
+                    <label>Catégorie</label>
+                    <select class="form-control" id="meuble-categorie">
+                        <option value="salon">Salon</option>
+                        <option value="chambre">Chambre</option>
+                        <option value="cuisine">Cuisine</option>
+                        <option value="bureau">Bureau</option>
+                        <option value="salle_de_bain">Salle de bain</option>
+                        <option value="exterieur">Extérieur</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Prix (€)</label>
+                    <input type="number" step="0.01" class="form-control" id="meuble-prix" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock</label>
+                    <input type="number" class="form-control" id="meuble-stock" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea class="form-control" id="meuble-description" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="sauvegarderMeuble()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let meublesData = [];
+
+$(document).ready(function() {
+    chargerMeubles();
+});
+
+function chargerMeubles() {
+    $.getJSON('/api/meubles/', function(data) {
+        meublesData = data;
+        var html = '';
+        data.forEach(function(m) {
+            html += `<tr>
+                <td>${m.nom}</td>
+                <td>${m.categorie_display}</td>
+                <td>${m.prix} €</td>
+                <td>${m.stock}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="modifierMeuble(${m.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="supprimerMeuble(${m.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        $('#table-meubles tbody').html(html);
+    });
+}
+
+function ouvrirModal() {
+    $('#meuble-id').val('');
+    $('#meuble-nom').val('');
+    $('#meuble-categorie').val('salon');
+    $('#meuble-prix').val('');
+    $('#meuble-stock').val('');
+    $('#meuble-description').val('');
+    $('#modal-title').text('Ajouter un Meuble');
+    $('#modalMeuble').modal('show');
+}
+
+function modifierMeuble(id) {
+    var meuble = meublesData.find(m => m.id === id);
+    if (!meuble) return;
+    
+    $('#meuble-id').val(meuble.id);
+    $('#meuble-nom').val(meuble.nom);
+    $('#meuble-categorie').val(meuble.categorie);
+    $('#meuble-prix').val(meuble.prix);
+    $('#meuble-stock').val(meuble.stock);
+    $('#meuble-description').val(meuble.description);
+    $('#modal-title').text('Modifier le Meuble');
+    $('#modalMeuble').modal('show');
+}
+
+function sauvegarderMeuble() {
+    var id = $('#meuble-id').val();
+    var data = {
+        nom: $('#meuble-nom').val(),
+        categorie: $('#meuble-categorie').val(),
+        prix: $('#meuble-prix').val(),
+        stock: $('#meuble-stock').val(),
+        description: $('#meuble-description').val()
+    };
+    
+    var method = id ? 'PUT' : 'POST';
+    if (id) data.id = parseInt(id);
+    
+    $.ajax({
+        url: '/api/meubles/',
+        method: method,
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            $('#modalMeuble').modal('hide');
+            chargerMeubles();
+            alert('Sauvegardé avec succès!');
+        },
+        error: function(xhr) {
+            alert('Erreur: ' + xhr.responseText);
+        }
+    });
+}
+
+function supprimerMeuble(id) {
+    if (!confirm('Voulez-vous vraiment supprimer ce meuble?')) return;
+    
+    $.ajax({
+        url: '/api/meubles/',
+        method: 'DELETE',
+        contentType: 'application/json',
+        data: JSON.stringify({id: id}),
+        success: function(response) {
+            chargerMeubles();
+            alert('Supprimé avec succès!');
+        }
+    });
+}
+</script>
+{% endblock %}

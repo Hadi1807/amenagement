@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block title %}Commandes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h1>Liste des Commandes</h1>
+    <button class="btn btn-primary" onclick="ouvrirModal()">+ Nouvelle Commande</button>
+</div>
+
+<table class="table table-striped table-hover" id="table-commandes">
+    <thead class="table-dark">
+        <tr>
+            <th>N°</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Statut</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="tbody-commandes">
+        <!-- Rempli par JS -->
+    </tbody>
+</table>
+
+<!-- Modal Nouvelle Commande -->
+<div class="modal fade" id="modalCommande" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle Commande</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Client</label>
+                    <select class="form-select" id="select-client"></select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Ajouter un article</label>
+                    <div class="input-group">
+                        <select class="form-select" id="select-meuble"></select>
+                        <input type="number" class="form-control" id="input-quantite" value="1" min="1" style="max-width: 100px;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="ajouterLigne()">Ajouter</button>
+                    </div>
+                </div>
+
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Meuble</th>
+                            <th>Qté</th>
+                            <th>Prix</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-lignes"></tbody>
+                </table>
+                
+                <h4 class="text-end">Total: <span id="span-total">0</span> €</h4>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="sauvegarder()">Créer la commande</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let lignes = [];
+let listeClients = [];
+let listeMeubles = [];
+
+// 1. Fonction de chargement des commandes
+function loadCommandes() {
+    console.log("Chargement des commandes...");
+    const tbody = document.getElementById('tbody-commandes');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm"></div> Chargement...</td></tr>';
+    
+    fetch('/api/commandes/')
+        .then(response => response.json())
+        .then(data => {
+            console.log("Données reçues:", data);
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Aucune commande</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            data.forEach(cmd => {
+                let badge = cmd.statut === 'payee' ? 'success' : 
+                           cmd.statut === 'en_attente' ? 'warning text-dark' : 'info';
+                html += `
+                    <tr>
+                        <td>CMD-${String(cmd.id).padStart(4,'0')}</td>
+                        <td>${cmd.client}</td>
+                        <td>${cmd.date}</td>
+                        <td>${cmd.total} €</td>
+                        <td><span class="badge bg-${badge}">${cmd.statut}</span></td>
+                        <td>
+                            <a href="/facturation/pdf/${cmd.id}/" target="_blank" class="btn btn-sm btn-danger">PDF</a>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        })
+        .catch(err => {
+            console.error("Erreur:", err);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erreur de chargement. <button onclick="loadCommandes()" class="btn btn-sm btn-link">Réessayer</button></td></tr>';
+        });
+}
+
+// 2. Ouvrir modal et charger données
+function ouvrirModal() {
+    lignes = [];
+    updateLignes();
+    
+    // Charger clients
+    fetch('/api/clients/')
+        .then(r => r.json())
+        .then(data => {
+            listeClients = data;
+            const select = document.getElementById('select-client');
+            select.innerHTML = data.map(c => `<option value="${c.id}">${c.nom}</option>`).join('');
+        });
+    
+    // Charger meubles  
+    fetch('/api/meubles/')
+        .then(r => r.json())
+        .then(data => {
+            listeMeubles = data;
+            const select = document.getElementById('select-meuble');
+            select.innerHTML = data.map(m => `<option value="${m.id}">${m.nom} (${m.prix}€)</option>`).join('');
+        });
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalCommande'));
+    modal.show();
+}
+
+// 3. Ajouter une ligne
+function ajouterLigne() {
+    const meubleId = document.getElementById('select-meuble').value;
+    const qte = parseInt(document.getElementById('input-quantite').value) || 1;
+    const meuble = listeMeubles.find(m => m.id == meubleId);
+    
+    if (!meuble) return;
+    
+    lignes.push({
+        meuble_id: meubleId,
+        nom: meuble.nom,
+        quantite: qte,
+        prix: meuble.prix
+    });
+    
+    updateLignes();
+}
+
+// 4. Mettre à jour l'affichage des lignes
+function updateLignes() {
+    const tbody = document.getElementById('tbody-lignes');
+    let total = 0;
+    
+    tbody.innerHTML = lignes.map((l, idx) => {
+        total += l.prix * l.quantite;
+        return `
+            <tr>
+                <td>${l.nom}</td>
+                <td>${l.quantite}</td>
+                <td>${l.prix} €</td>
+                <td><button class="btn btn-sm btn-danger" onclick="supprimerLigne(${idx})">×</button></td>
+            </tr>
+        `;
+    }).join('');
+    
+    document.getElementById('span-total').textContent = total.toFixed(2);
+}
+
+// 5. Supprimer une ligne
+function supprimerLigne(idx) {
+    lignes.splice(idx, 1);
+    updateLignes();
+}
+
+// 6. Sauvegarder la commande (AJAX sans rechargement)
+function sauvegarder() {
+    if (lignes.length === 0) {
+        alert("Ajoutez au moins un article");
+        return;
+    }
+    
+    const data = {
+        client_id: parseInt(document.getElementById('select-client').value),
+        lignes: lignes.map(l => ({meuble_id: l.meuble_id, quantite: l.quantite}))
+    };
+    
+    fetch('/api/commandes/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            // Fermer modal
+            bootstrap.Modal.getInstance(document.getElementById('modalCommande')).hide();
+            // Recharger le tableau sans recharger la page
+            loadCommandes();
+            alert("Commande créée !");
+        } else {
+            alert("Erreur: " + (result.error || "Inconnue"));
+        }
+    })
+    .catch(err => alert("Erreur réseau"));
+}
+
+// 7. Récupérer CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 8. CHARGEMENT AUTOMATIQUE AU DÉMARRAGE
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Page prête - Chargement auto");
+    loadCommandes();
+});
+</script>
+{% endblock %}

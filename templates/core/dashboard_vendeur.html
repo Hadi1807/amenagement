@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Espace Vendeur{% endblock %}
+
+{% block content %}
+<h1>Tableau de bord Vendeur</h1>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h4>Clients</h4>
+                <h2 id="count-clients">0</h2>
+                <a href="{% url 'clients' %}" class="text-white">Gérer →</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h4>Meubles</h4>
+                <h2 id="count-meubles">0</h2>
+                <a href="{% url 'meubles' %}" class="text-white">Gérer →</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h4>Commandes</h4>
+                <h2 id="count-commandes">0</h2>
+                <a href="{% url 'commandes' %}" class="text-white">Gérer →</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $.getJSON('/api/clients/', function(data) { $('#count-clients').text(data.length); });
+    $.getJSON('/api/meubles/', function(data) { $('#count-meubles').text(data.length); });
+    $.getJSON('/api/commandes/', function(data) { $('#count-commandes').text(data.length); });
+});
+</script>
+{% endblock %}
