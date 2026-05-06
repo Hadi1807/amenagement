@@ -1,0 +1,13 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    location /static/ {
+        root /var/www/amenagement;
+    }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/var/www/amenagement/amenagement.sock;
+    }
+}

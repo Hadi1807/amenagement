@@ -1,0 +1,11 @@
+[Unit]
+Description=Gunicorn Aménagement
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/var/www/amenagement
+ExecStart=/var/www/amenagement/venv/bin/gunicorn --workers 3 --bind unix:/var/www/amenagement/amenagement.sock amenagement.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
